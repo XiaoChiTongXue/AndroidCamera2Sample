@@ -1,7 +1,0 @@
-#Internal package file, do not edit.
-#Wed Jun 05 18:48:18 CST 2019
-0.baseType=DIRECTORY
-0.base=F\:\\AndroidStudioWorkSpace\\Demo\\android-Camera2Basic-master\\Application\\build\\intermediates\\transforms\\dexMerger\\debug\\0
-0.path=classes.dex
-0.set=DEX
-count=1
