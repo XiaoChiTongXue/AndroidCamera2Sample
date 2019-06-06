@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.example.android.camera2basic;
+package com.example.android.camera2basic.fragment;
 
 import android.Manifest;
 import android.app.Activity;
@@ -27,7 +27,6 @@ import android.content.res.Configuration;
 import android.graphics.ImageFormat;
 import android.graphics.Matrix;
 import android.graphics.Point;
-import android.graphics.Rect;
 import android.graphics.RectF;
 import android.graphics.SurfaceTexture;
 import android.hardware.camera2.CameraAccessException;
@@ -60,7 +59,8 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Toast;
 
-import com.example.android.camera2basic.view.ZoomBarView;
+import com.example.android.camera2basic.R;
+import com.example.android.camera2basic.view.AutoFitTextureView;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -74,7 +74,13 @@ import java.util.List;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 
-public class Camera2BasicFragment extends Fragment
+/**
+ * 显示双textureView
+ *
+ * @Data 2019-06-06
+ * @Author York
+ */
+public class Camera2DoubleTextViewFragment extends Fragment
         implements View.OnClickListener, ActivityCompat.OnRequestPermissionsResultCallback {
 
     /**
@@ -94,7 +100,7 @@ public class Camera2BasicFragment extends Fragment
     /**
      * Tag for the {@link Log}.
      */
-    private static final String TAG = Camera2BasicFragment.class.getSimpleName();
+    private static final String TAG = Camera2DoubleTextViewFragment.class.getSimpleName();
 
     /**
      * Camera state: Showing camera preview.
@@ -135,6 +141,40 @@ public class Camera2BasicFragment extends Fragment
      * {@link TextureView.SurfaceTextureListener} handles several lifecycle events on a
      * {@link TextureView}.
      */
+    private final TextureView.SurfaceTextureListener mSurfaceTexture2Listener
+            = new TextureView.SurfaceTextureListener() {
+
+        @Override
+        public void onSurfaceTextureAvailable(SurfaceTexture texture, int width, int height) {
+            Log.v(TAG,"--- surfaceTexture2 available,width: "+width+"; height: "+height);
+            int orientation = getResources().getConfiguration().orientation;
+            if (orientation == Configuration.ORIENTATION_LANDSCAPE) {
+                mTextureView2.setAspectRatio(
+                        mPreviewSize.getWidth(), mPreviewSize.getHeight()/2);
+            } else {
+                mTextureView2.setAspectRatio(
+                        mPreviewSize.getHeight(), mPreviewSize.getWidth()/2);
+            }
+            configureTransform2(mTextureView2.getWidth(), mTextureView2.getHeight()/2);
+        }
+
+        @Override
+        public void onSurfaceTextureSizeChanged(SurfaceTexture texture, int width, int height) {
+            Log.v(TAG, "---- surfaceTexture2 SizeChanged();width:" + width + ";height:" + height);
+            configureTransform2(width, height);
+        }
+
+        @Override
+        public boolean onSurfaceTextureDestroyed(SurfaceTexture texture) {
+            Log.v(TAG, "---- surfaceTexture2 Destroyed();");
+            return true;
+        }
+
+        @Override
+        public void onSurfaceTextureUpdated(SurfaceTexture texture) {
+        }
+    };
+
     private final TextureView.SurfaceTextureListener mSurfaceTextureListener
             = new TextureView.SurfaceTextureListener() {
 
@@ -170,6 +210,8 @@ public class Camera2BasicFragment extends Fragment
      */
     private AutoFitTextureView mTextureView;
 
+    private AutoFitTextureView mTextureView2;
+
     /**
      * A {@link CameraCaptureSession } for camera preview.
      */
@@ -181,11 +223,9 @@ public class Camera2BasicFragment extends Fragment
     private CameraDevice mCameraDevice;
 
     /**
-     * The {@link android.util.Size} of camera preview.
+     * The {@link Size} of camera preview.
      */
     private Size mPreviewSize;
-
-    private ZoomBarView mZoomBarView;
 
     /**
      * {@link CameraDevice.StateCallback} is called when {@link CameraDevice} changes its state.
@@ -198,6 +238,13 @@ public class Camera2BasicFragment extends Fragment
 
             mCameraOpenCloseLock.release();
             mCameraDevice = cameraDevice;
+
+            try {
+                Thread.sleep(500); //这里做下延时,等待2个textureView都准备好了再打开预览
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+
             createCameraPreviewSession();
         }
 
@@ -234,6 +281,7 @@ public class Camera2BasicFragment extends Fragment
      */
     private Handler mBackgroundHandler;
 
+
     /**
      * An {@link ImageReader} that handles still image capture.
      */
@@ -256,7 +304,7 @@ public class Camera2BasicFragment extends Fragment
             Log.v(TAG, "--- onImageAvailable();reader: " + reader);
             Image image = reader.acquireLatestImage();
             image.close();
-          //  mBackgroundHandler.post(new ImageSaver(reader.acquireNextImage(), mFile));
+            //  mBackgroundHandler.post(new ImageSaver(reader.acquireNextImage(), mFile));
         }
     };
 
@@ -429,14 +477,14 @@ public class Camera2BasicFragment extends Fragment
         }
     }
 
-    public static Camera2BasicFragment newInstance() {
-        return new Camera2BasicFragment();
+    public static Camera2DoubleTextViewFragment newInstance() {
+        return new Camera2DoubleTextViewFragment();
     }
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
-        return inflater.inflate(R.layout.fragment_camera2_basic, container, false);
+        return inflater.inflate(R.layout.fragment_camera2_double_textureview_layout, container, false);
     }
 
     @Override
@@ -448,14 +496,8 @@ public class Camera2BasicFragment extends Fragment
         view.findViewById(R.id.startRecord).setOnClickListener(this);
         view.findViewById(R.id.stopRecord).setOnClickListener(this);
 
-        mTextureView = (AutoFitTextureView) view.findViewById(R.id.texture);
-        mZoomBarView = view.findViewById(R.id.zoom_bar_view);
-        mZoomBarView.setOnScrollListener(new ZoomBarView.OnScrollListener() {
-            @Override
-            public void onScaleScroll(int scale) {
-                setZoom(scale * 2);
-            }
-        });
+        mTextureView = view.findViewById(R.id.texture);
+        mTextureView2 = view.findViewById(R.id.texture2);
     }
 
     @Override
@@ -477,6 +519,11 @@ public class Camera2BasicFragment extends Fragment
             openCamera(mTextureView.getWidth(), mTextureView.getHeight());
         } else {
             mTextureView.setSurfaceTextureListener(mSurfaceTextureListener);
+        }
+
+        Log.v(TAG,"---- onResume();mTextureView2.isAvailable(): "+mTextureView2.isAvailable());
+        if (!mTextureView2.isAvailable()) {
+            mTextureView2.setSurfaceTextureListener(mSurfaceTexture2Listener);
         }
     }
 
@@ -601,10 +648,10 @@ public class Camera2BasicFragment extends Fragment
                 int orientation = getResources().getConfiguration().orientation;
                 if (orientation == Configuration.ORIENTATION_LANDSCAPE) {
                     mTextureView.setAspectRatio(
-                            mPreviewSize.getWidth(), mPreviewSize.getHeight());
+                            mPreviewSize.getWidth(), mPreviewSize.getHeight()/2);
                 } else {
                     mTextureView.setAspectRatio(
-                            mPreviewSize.getHeight(), mPreviewSize.getWidth());
+                            mPreviewSize.getHeight(), mPreviewSize.getWidth()/2);
                 }
 
                 // Check if the flash is supported.
@@ -626,23 +673,23 @@ public class Camera2BasicFragment extends Fragment
     }
 
     /**
-     * Opens the camera specified by {@link Camera2BasicFragment#mCameraId}.
+     * Opens the camera specified by {@link Camera2DoubleTextViewFragment}.
      */
     private void openCamera(int width, int height) {
-        Log.v(TAG, "---- openCamera();width: " + width + ";height: " + height);
+        Log.v(TAG, "---- openBackCamera();width: " + width + ";height: " + height);
 
         if (ContextCompat.checkSelfPermission(getActivity(), Manifest.permission.CAMERA)
                 != PackageManager.PERMISSION_GRANTED) {
             requestCameraPermission();
             return;
         }
-        setUpCameraOutputs(width, height);
-        configureTransform(width, height);
+        setUpCameraOutputs(width, height/2);
+        configureTransform(width, height/2);
         Activity activity = getActivity();
         CameraManager manager = (CameraManager) activity.getSystemService(Context.CAMERA_SERVICE);
         try {
             if (!mCameraOpenCloseLock.tryAcquire(2500, TimeUnit.MILLISECONDS)) {
-                throw new RuntimeException("Time out waiting to lock camera opening.");
+                throw new RuntimeException("Time out waiting to lock back camera opening.");
             }
             manager.openCamera(mCameraId, mStateCallback, mBackgroundHandler);
         } catch (CameraAccessException e) {
@@ -683,7 +730,7 @@ public class Camera2BasicFragment extends Fragment
      * Starts a background thread and its {@link Handler}.
      */
     private void startBackgroundThread() {
-        mBackgroundThread = new HandlerThread("CameraBackground");
+        mBackgroundThread = new HandlerThread("BackCamBackground");
         mBackgroundThread.start();
         mBackgroundHandler = new Handler(mBackgroundThread.getLooper());
     }
@@ -710,26 +757,30 @@ public class Camera2BasicFragment extends Fragment
 
         try {
             SurfaceTexture texture = mTextureView.getSurfaceTexture();
+            SurfaceTexture texture2 = mTextureView2.getSurfaceTexture();
             assert texture != null;
+            assert texture2 != null;
 
             // We configure the size of default buffer to be the size of camera preview we want.
             texture.setDefaultBufferSize(mPreviewSize.getWidth(), mPreviewSize.getHeight());
+            texture2.setDefaultBufferSize(mPreviewSize.getWidth(), mPreviewSize.getHeight());
 
             // This is the output Surface we need to start preview.
-//            Surface surface = new Surface(texture);
+            Surface surface = new Surface(texture);
+            Surface surface2 = new Surface(texture2);
 
-            Surface surface =new Surface(texture);
             // We set up a CaptureRequest.Builder with the output Surface.
             mPreviewRequestBuilder
                     = mCameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
-            mPreviewRequestBuilder.addTarget(mImageReader.getSurface());
 
-//            mPreviewRequestBuilder
-//                    = mCameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_STILL_CAPTURE);
-//            mPreviewRequestBuilder.addTarget(surface);
+            mPreviewRequestBuilder.addTarget(surface);
+            mPreviewRequestBuilder.addTarget(surface2);
+
+            //request builder可以设置多个target，如果需要拿到实时的预览数据，则把imageReader 的surface 也设进去
+//            mPreviewRequestBuilder.addTarget(mImageReader.getSurface());
 
             // Here, we create a CameraCaptureSession for camera preview.
-            mCameraDevice.createCaptureSession(Arrays.asList(surface, mImageReader.getSurface()),
+            mCameraDevice.createCaptureSession(Arrays.asList(surface, surface2, mImageReader.getSurface()),
                     new CameraCaptureSession.StateCallback() {
 
                         @Override
@@ -774,71 +825,7 @@ public class Camera2BasicFragment extends Fragment
     }
 
     /**
-     * Creates a new {@link CameraCaptureSession} for camera recorder.
-     */
-    /*private void createCameraPreviewSession() {
-        Log.v(TAG, "---- createCameraPreviewSession();");
-
-        try {
-            SurfaceTexture texture = mTextureView.getSurfaceTexture();
-            assert texture != null;
-
-            // We configure the size of default buffer to be the size of camera preview we want.
-            texture.setDefaultBufferSize(mPreviewSize.getWidth(), mPreviewSize.getHeight());
-
-            // This is the output Surface we need to start preview.
-            Surface surface = new Surface(texture);
-
-            // We set up a CaptureRequest.Builder with the output Surface.
-            mPreviewRequestBuilder
-                    = mCameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
-            mPreviewRequestBuilder.addTarget(surface);
-
-            // Here, we create a CameraCaptureSession for camera preview.
-            mCameraDevice.createCaptureSession(Arrays.asList(surface, mImageReader.getSurface()),
-                    new CameraCaptureSession.StateCallback() {
-
-                        @Override
-                        public void onConfigured(@NonNull CameraCaptureSession cameraCaptureSession) {
-                            Log.v(TAG, "--- onConfigured();");
-
-                            // The camera is already closed
-                            if (null == mCameraDevice) {
-                                return;
-                            }
-
-                            // When the session is ready, we start displaying the preview.
-                            mPreviewCaptureSession = cameraCaptureSession;
-                            try {
-                                // Auto focus should be continuous for camera preview.
-                                mPreviewRequestBuilder.set(CaptureRequest.CONTROL_AF_MODE,
-                                        CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE);
-                                // Flash is automatically enabled when necessary.
-                                setAutoFlash(mPreviewRequestBuilder);
-
-                                // Finally, we start displaying the camera preview.
-                                mPreviewRequest = mPreviewRequestBuilder.build();
-                                mPreviewCaptureSession.setRepeatingRequest(mPreviewRequest,
-                                        mCaptureCallback, mBackgroundHandler);
-                            } catch (CameraAccessException e) {
-                                e.printStackTrace();
-                            }
-                        }
-
-                        @Override
-                        public void onConfigureFailed(
-                                @NonNull CameraCaptureSession cameraCaptureSession) {
-                            showToast("Failed");
-                        }
-                    }, null
-            );
-        } catch (CameraAccessException e) {
-            e.printStackTrace();
-        }
-    }*/
-
-    /**
-     * Configures the necessary {@link android.graphics.Matrix} transformation to `mTextureView`.
+     * Configures the necessary {@link Matrix} transformation to `mTextureView`.
      * This method should be called after the camera preview size is determined in
      * setUpCameraOutputs and also the size of `mTextureView` is fixed.
      *
@@ -850,6 +837,7 @@ public class Camera2BasicFragment extends Fragment
         if (null == mTextureView || null == mPreviewSize || null == activity) {
             return;
         }
+
         int rotation = activity.getWindowManager().getDefaultDisplay().getRotation();
         Matrix matrix = new Matrix();
         RectF viewRect = new RectF(0, 0, viewWidth, viewHeight);
@@ -868,6 +856,32 @@ public class Camera2BasicFragment extends Fragment
             matrix.postRotate(180, centerX, centerY);
         }
         mTextureView.setTransform(matrix);
+    }
+
+    private void configureTransform2(int viewWidth, int viewHeight) {
+        Activity activity = getActivity();
+        if (null == mTextureView || null == mPreviewSize || null == activity) {
+            return;
+        }
+
+        int rotation = activity.getWindowManager().getDefaultDisplay().getRotation();
+        Matrix matrix = new Matrix();
+        RectF viewRect = new RectF(0, 0, viewWidth, viewHeight);
+        RectF bufferRect = new RectF(0, 0, mPreviewSize.getHeight(), mPreviewSize.getWidth());
+        float centerX = viewRect.centerX();
+        float centerY = viewRect.centerY();
+        if (Surface.ROTATION_90 == rotation || Surface.ROTATION_270 == rotation) {
+            bufferRect.offset(centerX - bufferRect.centerX(), centerY - bufferRect.centerY());
+            matrix.setRectToRect(viewRect, bufferRect, Matrix.ScaleToFit.FILL);
+            float scale = Math.max(
+                    (float) viewHeight / mPreviewSize.getHeight(),
+                    (float) viewWidth / mPreviewSize.getWidth());
+            matrix.postScale(scale, scale, centerX, centerY);
+            matrix.postRotate(90 * (rotation - 2), centerX, centerY);
+        } else if (Surface.ROTATION_180 == rotation) {
+            matrix.postRotate(180, centerX, centerY);
+        }
+        mTextureView2.setTransform(matrix);
     }
 
     /**
@@ -950,8 +964,6 @@ public class Camera2BasicFragment extends Fragment
                 public void onCaptureCompleted(@NonNull CameraCaptureSession session,
                                                @NonNull CaptureRequest request,
                                                @NonNull TotalCaptureResult result) {
-//                    Log.v(TAG, "---- onCaptureCompleted();");
-
                     showToast("Saved: " + mFile);
                     Log.d(TAG, mFile.toString());
                     unlockFocus();
@@ -964,37 +976,6 @@ public class Camera2BasicFragment extends Fragment
         } catch (CameraAccessException e) {
             e.printStackTrace();
         }
-    }
-
-    private void setZoom(int zoomNum) {
-        Rect rect = mCameraCharacteristics.get(CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE);
-
-        Log.v(TAG, "---- setZoom();top: " + rect.top + ";bottom: " + rect.bottom + ";reft: " + rect.left + ";right:" + rect.right);
-        /*
-        int radio = mCameraCharacteristics.get(CameraCharacteristics.SCALER_AVAILABLE_MAX_DIGITAL_ZOOM).intValue() / 2;
-        int realRadio = mCameraCharacteristics.get(CameraCharacteristics.SCALER_AVAILABLE_MAX_DIGITAL_ZOOM).intValue();
-
-        Log.v(TAG,"---- setZoom();realRadio:"+realRadio);
-
-        int centerX = rect.centerX();
-        int centerY = rect.centerY();
-        int minMidth = (rect.right - ((zoomNum * centerX) / 100 / radio) - 1) - ((zoomNum * centerX / radio) / 100 + 8);
-        int minHeight = (rect.bottom - ((zoomNum * centerY) / 100 / radio) - 1) - ((zoomNum * centerY / radio) / 100 + 16);
-        if (minMidth < rect.right / realRadio || minHeight < rect.bottom / realRadio) {
-            Log.i("sb_zoom", "sb_zoomsb_zoomsb_zoom");
-            return;
-        }
-        Rect newRect = new Rect((zoomNum * centerX / radio) / 100 + 40, (zoomNum * centerY / radio) / 100 + 40, rect.right - ((zoomNum * centerX) / 100 / radio) - 1, rect.bottom - ((zoomNum * centerY) / 100 / radio) - 1);
-        Log.i("sb_zoom", "left--->" + ((zoomNum * centerX / radio) / 100 + 8) + ",,,top--->" + ((zoomNum * centerY / radio) / 100 + 16) + ",,,right--->" + (rect.right - ((zoomNum * centerX) / 100 / radio) - 1) + ",,,bottom--->" + (rect.bottom - ((zoomNum * centerY) / 100 / radio) - 1));
-        mPreviewRequestBuilder.set(CaptureRequest.SCALER_CROP_REGION, newRect);*/
-
-       /* try {
-            mPreviewRequestBuilder.set(
-                    CaptureRequest.SCALER_CROP_REGION,
-                    new Rect(0, 0, (int) (rect.right / mRate), (int) (rect.bottom / mRate)));
-        } catch (CameraAccessException e) {
-            e.printStackTrace();
-        }*/
     }
 
     /**

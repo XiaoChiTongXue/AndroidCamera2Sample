@@ -14,20 +14,22 @@
  * limitations under the License.
  */
 
-package com.example.android.camera2basic;
+package com.example.android.camera2basic.activity;
 
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
 
-public class CameraActivity extends AppCompatActivity {
+import com.example.android.camera2basic.R;
+import com.example.android.camera2basic.fragment.Camera2VideoFragment;
 
+public class CameraActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_camera);
         if (null == savedInstanceState) {
             getSupportFragmentManager().beginTransaction()
-                    .replace(R.id.container, Camera2BasicFragment.newInstance())
+                    .replace(R.id.container, Camera2VideoFragment.newInstance())
                     .commit();
         }
     }
