@@ -1,11 +1,10 @@
 
-Android Camera2Basic Sample
+AndroidCamera2Sample
 ===================================
 
-This sample demonstrates how to use basic functionalities of Camera2
-API. You can learn how to iterate through characteristics of all the
-cameras attached to the device, display a camera preview, and take
-pictures.
+ gooogleCamera2demohttps://github.com/googlesamples/android-Camera2Basic,demo
+ 
+ 
 
 Introduction
 ------------
@@ -60,14 +59,6 @@ This sample uses the Gradle build system. To build this project, use the
 Support
 -------
 
-- Google+ Community: https://plus.google.com/communities/105153134372062985968
-- Stack Overflow: http://stackoverflow.com/questions/tagged/android
-
-If you've found an error in this sample, please file an issue:
-https://github.com/googlesamples/android-Camera2Basic
-
-Patches are encouraged, and may be submitted by forking this project and
-submitting a pull request through GitHub. Please see CONTRIBUTING.md for more details.
 
 License
 -------
